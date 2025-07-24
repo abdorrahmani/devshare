@@ -1,9 +1,12 @@
 package main
 
 import (
-	"fmt"
+	"github.com/abdorrahmani/devshare/cmd"
+	"os"
 )
 
 func main() {
-	fmt.Println("Hello and welcome to Devshare")
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
