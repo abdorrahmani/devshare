@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/abdorrahmani/devshare/internal/detector"
 	"github.com/abdorrahmani/devshare/internal/display"
 	"github.com/spf13/cobra"
 )
@@ -20,6 +21,7 @@ Example usage:
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		display.WelcomeMessage()
+		detector.GetFilesInDir(detector.GetWorkingDir())
 	},
 }
 
