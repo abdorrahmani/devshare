@@ -10,8 +10,8 @@ func isReactProject(dir string) bool {
 	packagePath := dir + string(os.PathSeparator) + "package.json"
 
 	// Check if package.json exists
-	if _, err := os.Stat(packagePath); err == nil {
-		return true
+	if _, err := os.Stat(packagePath); err != nil {
+		return false
 	}
 
 	data, err := os.ReadFile(packagePath)
