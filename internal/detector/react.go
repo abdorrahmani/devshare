@@ -17,7 +17,7 @@ func isReactProject(dir string) (bool, string) {
 	// Check witch package manager is used
 	pkgManager, err := packageManagerDetector(dir)
 	if err != nil {
-		panic(err)
+		return false, ""
 	}
 
 	data, err := os.ReadFile(packagePath)

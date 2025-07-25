@@ -12,7 +12,7 @@ func isNextJSProject(dir string) (bool, string) {
 
 	pkgManager, err := packageManagerDetector(dir)
 	if err != nil {
-		panic(err)
+		return false, ""
 	}
 
 	for _, file := range nextConfigFiles {

@@ -9,7 +9,7 @@ func isNodeJSProject(dir string) (bool, string) {
 	if _, err := os.Stat(packageJsonPath); err == nil {
 		pkgManager, err := packageManagerDetector(dir)
 		if err != nil {
-			panic(err)
+			return false, ""
 		}
 		return true, pkgManager
 	}
