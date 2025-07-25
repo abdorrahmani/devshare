@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/abdorrahmani/devshare/internal/detector"
 	"github.com/abdorrahmani/devshare/internal/display"
+	"github.com/abdorrahmani/devshare/internal/runner"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +24,25 @@ Example usage:
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		display.WelcomeMessage()
-		detector.GetFilesInDir(detector.GetWorkingDir())
+		dir := detector.GetWorkingDir()
+		projectType, pkgManager := detector.DetectProjectType(dir)
+		if projectType == "" {
+			fmt.Println("❌ No supported project detected. Exiting.")
+			return
+		}
+		if projectType == "react" || projectType == "nextjs" {
+			err := runner.RunProject(projectType, pkgManager)
+			if err != nil {
+				fmt.Printf("❌ Error: %v\n", err)
+			}
+		} else if projectType == "go" {
+			err := runner.RunProject(projectType, "")
+			if err != nil {
+				fmt.Printf("❌ Error: %v\n", err)
+			}
+		} else {
+			fmt.Printf("Project type '%s' detected, but no runner implemented.\n", projectType)
+		}
 	},
 }
 

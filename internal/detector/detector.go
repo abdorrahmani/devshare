@@ -16,38 +16,31 @@ func GetWorkingDir() string {
 	return dir
 }
 
-// GetFilesInDir checks the directory and prints if it's a Laravel/Go/Next.js/React/Node.js project.
-func GetFilesInDir(dir string) string {
-	if dir == "" {
-		fmt.Println("No directory provided.")
-		return ""
-	}
-
-	fmt.Println("Scanning directory:", dir)
+// DetectProjectType returns the project type (react, nextjs, go, nodejs) and package manager if applicable.
+func DetectProjectType(dir string) (string, string) {
 	if isLaravelProject(dir) {
 		fmt.Println("✅ Laravel project detected!")
 		fmt.Println("You can now share your Laravel project over LAN.")
+		return "laravel", ""
 	} else if ok, pkgManager := isNextJSProject(dir); ok {
 		fmt.Println("✅ Next.js project detected!")
 		fmt.Println("You can now share your Next.js project over LAN.")
-		fmt.Printf("🚀 Using package manager: %s\n", pkgManager)
-		return pkgManager
+		fmt.Printf("📦 Using package manager: %s\n", pkgManager)
+		return "nextjs", pkgManager
 	} else if ok, pkgManager := isReactProject(dir); ok {
 		fmt.Println("✅ React project detected!")
 		fmt.Println("You can now share your React project over LAN.")
-		fmt.Printf("🚀 Using package manager: %s\n", pkgManager)
-		return pkgManager
+		fmt.Printf("📦 Using package manager: %s\n", pkgManager)
+		return "react", pkgManager
 	} else if isGoProject(dir) {
 		fmt.Println("✅ Go project detected!")
 		fmt.Println("You can now share your Go project over LAN.")
+		return "go", ""
 	} else if ok, pkgManager := isNodeJSProject(dir); ok {
 		fmt.Println("✅ Node.js project detected!")
 		fmt.Println("You can now share your Node.js project over LAN.")
-		fmt.Printf("🚀 Using package manager: %s\n", pkgManager)
-		return pkgManager
-	} else {
-		fmt.Println("❌ Not a Laravel/Go/Node.js/Next.js/React project.")
+		fmt.Printf("📦 Using package manager: %s\n", pkgManager)
+		return "nodejs", pkgManager
 	}
-
-	return ""
+	return "", ""
 }
