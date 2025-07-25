@@ -6,17 +6,23 @@ import (
 )
 
 // isReactProject checks if the given directory is a React project
-func isReactProject(dir string) bool {
+func isReactProject(dir string) (bool, string) {
 	packagePath := dir + string(os.PathSeparator) + "package.json"
 
 	// Check if package.json exists
 	if _, err := os.Stat(packagePath); err != nil {
-		return false
+		return false, ""
+	}
+
+	// Check witch package manager is used
+	pkgManager, err := packageManagerDetector(dir)
+	if err != nil {
+		panic(err)
 	}
 
 	data, err := os.ReadFile(packagePath)
 	if err != nil {
-		return false
+		return false, ""
 	}
 
 	type pkgJson struct {
@@ -26,19 +32,19 @@ func isReactProject(dir string) bool {
 
 	var pkg pkgJson
 	if err := json.Unmarshal(data, &pkg); err != nil {
-		return false
+		return false, ""
 	}
 
 	// Check for 'react' in dependencies or devDependencies
 	if pkg.Dependencies != nil {
 		if _, ok := pkg.Dependencies["react"]; ok {
-			return true
+			return true, pkgManager
 		}
 	}
 
 	if pkg.DevDependencies != nil {
 		if _, ok := pkg.DevDependencies["react"]; ok {
-			return true
+			return true, pkgManager
 		}
 	}
 
@@ -50,9 +56,9 @@ func isReactProject(dir string) bool {
 	for _, f := range entryFiles {
 		entryPath := dir + string(os.PathSeparator) + f
 		if _, err := os.Stat(entryPath); err == nil {
-			return true
+			return true, pkgManager
 		}
 	}
 
-	return false
+	return false, ""
 }
