@@ -30,12 +30,12 @@ Example usage:
 			fmt.Println("❌ No supported project detected. Exiting.")
 			return
 		}
-		if projectType == "react" || projectType == "nextjs" {
+		if projectType == "react" || projectType == "nextjs" || projectType == "nodejs" {
 			err := runner.RunProject(projectType, pkgManager)
 			if err != nil {
 				fmt.Printf("❌ Error: %v\n", err)
 			}
-		} else if projectType == "go" {
+		} else if projectType == "go" || projectType == "laravel" {
 			err := runner.RunProject(projectType, "")
 			if err != nil {
 				fmt.Printf("❌ Error: %v\n", err)

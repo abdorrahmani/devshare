@@ -13,12 +13,16 @@ import (
 // RunProject runs the appropriate command based on project type and package manager.
 func RunProject(projectType, packageManager string) error {
 	switch projectType {
+	case "laravel":
+		return runLaravel()
 	case "react":
 		return runReact(packageManager)
 	case "nextjs":
 		return runNextJS(packageManager)
 	case "go":
 		return runGo()
+	case "nodejs":
+		return runNodeJS(packageManager)
 	default:
 		return fmt.Errorf("unsupported project type: %s", projectType)
 	}
@@ -99,5 +103,30 @@ func runGo() error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to run Go app: %w", err)
 	}
+	return nil
+}
+
+// runLaravel runs the Laravel app
+func runLaravel() error {
+	fmt.Println("🚀 Starting Laravel app...")
+	ip := network.GetLocalIP()
+	cmd := exec.Command("php", "artisan", "serve", "--host", "0.0.0.0", "--port", "8000")
+
+	fmt.Printf("Local:   http://localhost:8000\n")
+	fmt.Printf("Network: http://%s:8000\n", ip)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	qrcode.GenerateQrCodeWithMessage(ip+":8000", "📱 Scan this on your phone (Laravel default port 8000):")
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to run Laravel app: %w", err)
+	}
+	return nil
+}
+
+func runNodeJS(packageManager string) error {
+	// TODO: Implement Node.js app running
 	return nil
 }
