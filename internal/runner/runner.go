@@ -126,7 +126,113 @@ func runLaravel() error {
 	return nil
 }
 
+// runNodeJs runs the Node.js app
 func runNodeJS(packageManager string) error {
-	// TODO: Implement Node.js app running
-	return nil
+	fmt.Println("🚀 Starting Node.js app...")
+	ip := network.GetLocalIP()
+
+	pmCmds := [][]string{
+		{"start"},
+		{"run", "dev"},
+	}
+
+	entryFiles := []struct {
+		file  string
+		useTs bool
+	}{
+		{"index.js", false},
+		{"app.js", false},
+		{"index.ts", true},
+		{"app.ts", true},
+	}
+
+	printNetworkInfo := func() {
+		fmt.Printf("Local:   http://localhost:3000\n")
+		fmt.Printf("Network: http://%s:3000\n", ip)
+		qrcode.GenerateQrCodeWithMessage(ip+":3000", "📱 Scan this on your phone (Node.js default port 3000):")
+	}
+
+	// Try package manager scripts first
+	for _, args := range pmCmds {
+		fmt.Printf("Trying: %s %s\n", packageManager, args)
+		printNetworkInfo()
+		cmd := exec.Command(packageManager, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err == nil {
+			return nil
+		} else {
+			fmt.Printf("⚠️  Failed to run %s %s: %v\n", packageManager, args, err)
+		}
+	}
+
+	// Try direct node/ts-node with entry files
+	for _, entry := range entryFiles {
+		if _, err := os.Stat(entry.file); err == nil {
+			var cmd *exec.Cmd
+			if entry.useTs {
+				fmt.Printf("Trying: ts-node %s\n", entry.file)
+				printNetworkInfo()
+				cmd = exec.Command("ts-node", entry.file)
+			} else {
+				fmt.Printf("Trying: node %s\n", entry.file)
+				printNetworkInfo()
+				cmd = exec.Command("node", entry.file)
+			}
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err == nil {
+				return nil
+			} else {
+				fmt.Printf("⚠️  Failed to run %s %s: %v\n", cmd.Path, entry.file, err)
+			}
+		}
+	}
+
+	fmt.Println("Installing dependencies...")
+	installCmd := exec.Command(packageManager, "install")
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install dependencies: %w", err)
+	}
+
+	// Retry package manager scripts
+	for _, args := range pmCmds {
+		fmt.Printf("Trying: %s %s\n", packageManager, args)
+		printNetworkInfo()
+		cmd := exec.Command(packageManager, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err == nil {
+			return nil
+		} else {
+			fmt.Printf("⚠️  Failed to run %s %s: %v\n", packageManager, args, err)
+		}
+	}
+
+	// Retry direct node/ts-node
+	for _, entry := range entryFiles {
+		if _, err := os.Stat(entry.file); err == nil {
+			var cmd *exec.Cmd
+			if entry.useTs {
+				fmt.Printf("Trying: ts-node %s\n", entry.file)
+				printNetworkInfo()
+				cmd = exec.Command("ts-node", entry.file)
+			} else {
+				fmt.Printf("Trying: node %s\n", entry.file)
+				printNetworkInfo()
+				cmd = exec.Command("node", entry.file)
+			}
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err == nil {
+				return nil
+			} else {
+				fmt.Printf("⚠️  Failed to run %s %s: %v\n", cmd.Path, entry.file, err)
+			}
+		}
+	}
+
+	return fmt.Errorf("could not start Node.js app: no working package manager script or entry file")
 }
