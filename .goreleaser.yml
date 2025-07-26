@@ -1,0 +1,66 @@
+version: 2
+project_name: DevShare
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: devshare
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    main: ./main.go
+    binary: devshare
+    dir: .
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - Merge pull request
+      - Merge branch
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+release:
+  github:
+    owner: abdorrahmani
+    name: devshare
+  draft: false
+  prerelease: false
+  name_template: "{{ .ProjectName }} v{{ .Version }}"
+  extra_files:
+    - glob: LICENSE
+    - glob: README.md
+    - glob: CHANGELOG.md
