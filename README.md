@@ -38,19 +38,45 @@ DevShare is a CLI tool that lets you instantly share your local development envi
 
 ## 🛠️ Installation
 
-### 1. Install Go (if not already installed)
-- [Download Go](https://golang.org/dl/)
+### 1. Download and Install DevShare
 
-### 2. Install DevShare
+#### Option 1: Download from Releases (Recommended)
+Download the latest release for your platform from [GitHub Releases](https://github.com/abdorrahmani/devshare/releases) and extract the archive:
 
-#### Option 1: Download from releases
-Download the latest release for your platform from [GitHub Releases](https://github.com/abdorrahmani/devshare/releases):
+- **Windows**: `devshare_windows_amd64.zip`
+- **macOS**: `devshare_darwin_amd64.tar.gz` or `devshare_darwin_arm64.tar.gz` (Apple Silicon)
+- **Linux**: `devshare_linux_amd64.tar.gz`
 
-- **Windows**: `devshare_windows_amd64.exe`
-- **macOS**: `devshare_darwin_amd64` or `devshare_darwin_arm64` (Apple Silicon)
-- **Linux**: `devshare_linux_amd64`
+Each archive contains:
+- The DevShare binary (`devshare` or `devshare.exe`)
+- The installer script (`install.sh` for Linux/macOS, `install.ps1` for Windows)
 
-#### Option 2: Install via Go
+**To install:**
+- On **Linux/macOS**:
+  ```sh
+  cd <extracted-folder>
+  sudo bash install.sh
+  ```
+- On **Windows**:
+  - **Easiest:** Double-click `install.bat` in the extracted folder. This will request Administrator privileges, then run the installer in a new window.
+  - **Advanced:** If you prefer to use Windows Terminal or PowerShell, first right-click Windows Terminal and select "Run as administrator", then:
+    ```powershell
+    cd <extracted-folder>
+    .\install.ps1
+    ```
+
+- To check installation success:
+    ```sh
+    devshare --version
+    DevShare version: vX.X.X
+    ```
+
+The installer will copy the binary to the appropriate location and add it to your PATH if needed. No build step is required.
+
+**Troubleshooting:**
+- If you see `devshare.exe not found in current directory`, make sure you are running the installer from the same folder where `devshare.exe` is located (the extracted archive folder). If you double-clicked `install.bat`, this should happen automatically.
+
+#### Option 2: Install via Go (for Go users)
 ```sh
 go install github.com/abdorrahmani/devshare@latest
 ```
