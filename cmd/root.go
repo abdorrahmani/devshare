@@ -14,8 +14,8 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "devshare <PORT>",
-	Args:  cobra.ExactArgs(1),
+	Use:   "devshare [PORT]",
+	Args:  cobra.MaximumNArgs(1),
 	Short: "DevShare is a CLI tool for sharing your dev environment over LAN",
 	Long: `DevShare is a CLI tool for sharing your development environment over LAN.
 
@@ -26,8 +26,13 @@ Example usage:
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		display.WelcomeMessage()
-		port := args[0]
 
+		var port string
+		if len(args) > 0 {
+			port = args[0]
+		} else {
+			port = ""
+		}
 		dir := detector.GetWorkingDir()
 		projectType, pkgManager := detector.DetectProjectType(dir)
 		if projectType == "" {
