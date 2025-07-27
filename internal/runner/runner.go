@@ -299,6 +299,18 @@ func runNodeJS(packageManager, port, password string) error {
 		time.Sleep(500 * time.Millisecond)
 	}
 
+	fmt.Println("\n\033[33mWARNING: Your Node.js app may be listening on all interfaces (0.0.0.0).\033[0m")
+	fmt.Println("For security, ensure your app binds to 127.0.0.1 to prevent bypassing authentication.")
+	fmt.Println("If you control the app, update your server code to listen only on 127.0.0.1, for example:")
+	fmt.Println(`
+// Node.js (Express example):
+const host = process.env.HOST || '127.0.0.1';
+const port = process.env.PORT || 3000;
+app.listen(port, host, () => {
+  console.log(` + "`Server running at http://${host}:${port}/`" + `);
+});
+`)
+
 	// Try package manager scripts first
 	for _, args := range pmCmds {
 		fmt.Printf("Trying: %s %s\n", packageManager, args)
