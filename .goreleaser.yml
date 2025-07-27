@@ -34,10 +34,17 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+        files:
+          - LICENSE
+          - README.md
+          - CHANGELOG.md
+          - install.ps1
+          - install.bat
     files:
       - LICENSE
       - README.md
       - CHANGELOG.md
+      - install.sh
 
 changelog:
   use: git
