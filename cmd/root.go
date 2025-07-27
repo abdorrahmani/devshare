@@ -35,7 +35,6 @@ Example usage:
 		} else {
 			port = ""
 		}
-		fmt.Println("Password:", *passwordFlag)
 		dir := detector.GetWorkingDir()
 		projectType, pkgManager := detector.DetectProjectType(dir)
 		if projectType == "" {

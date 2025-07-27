@@ -89,7 +89,7 @@ func startAuthServer(targetPort, authPort, password string) error {
 	}
 
 	server := &http.Server{
-		Addr:    ":" + authPort,
+		Addr:    "0.0.0.0:" + authPort,
 		Handler: handler,
 	}
 
@@ -174,8 +174,8 @@ func runReact(packageManager, port, password string) error {
 		port = "5173" // Default Vite port
 	}
 	cmds := [][]string{
-		{"start", "--port", port, "--host", "0.0.0.0"},
-		{"dev", "--port", port, "--host", "0.0.0.0"},
+		{"start", "--port", port, "--host", "127.0.0.1"},
+		{"dev", "--port", port, "--host", "127.0.0.1"},
 	}
 	fmt.Printf("Local:   http://localhost:%s\n", port)
 	if password == "" {
@@ -197,7 +197,7 @@ func runNextJS(packageManager, port, password string) error {
 		port = "3000" // Default Next.js port
 	}
 	cmds := [][]string{
-		{"dev", "--port", port, "-H", "0.0.0.0"},
+		{"dev", "--port", port, "-H", "127.0.0.1"},
 	}
 	fmt.Printf("Local:   http://localhost:%s\n", port)
 	if password == "" {
@@ -230,7 +230,7 @@ func runLaravel(port, password string) error {
 	if port == "" {
 		port = "8000" // Default Laravel port
 	}
-	cmd := exec.Command("php", "artisan", "serve", "--host", "0.0.0.0", "--port", port)
+	cmd := exec.Command("php", "artisan", "serve", "--host", "127.0.0.1", "--port", port)
 
 	fmt.Printf("Local:   http://localhost:%s\n", port)
 	if password == "" {
