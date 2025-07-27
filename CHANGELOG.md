@@ -59,11 +59,54 @@ devshare --version
 
 ---
 
+## [1.1.0] - 2025-XX-XX
+
+### 🔐 Added
+- **Password Protection**: New `--password` flag to secure development environments
+- **Authentication Proxy**: Creates a secure proxy server with password authentication
+- **Session Management**: Maintains authentication cookies for 1 hour
+- **Beautiful Auth UI**: Modern, responsive authentication page
+- **Secure Access**: Protects development work from unauthorized network access
+
+### 🎯 Features
+- **Reverse Proxy**: Forwards authenticated requests to the actual development server
+- **Cookie-based Sessions**: Secure session management with HttpOnly cookies
+- **Network Isolation**: Direct local access remains available while network access is protected
+- **QR Code Integration**: QR codes point to the secure proxy URL when authentication is enabled
+- **Port Management**: Automatically finds available ports for the authentication proxy
+
+### 🛠️ Technical Details
+- **Authentication Middleware**: Custom middleware for password verification
+- **Proxy Implementation**: HTTP reverse proxy with header forwarding
+- **Port Detection**: Automatic port availability checking
+- **Error Handling**: Graceful handling of authentication failures
+
+### 🚀 Usage
+```bash
+# Basic usage (no authentication)
+devshare
+
+# With password protection
+devshare --password=mysecret123
+
+# Custom port with authentication
+devshare 3000 --password=mysecret123
+```
+
+### 🔐 Authentication Flow
+1. User starts DevShare with `--password` flag
+2. DevShare starts the development server on the original port
+3. DevShare creates an authentication proxy on a different port
+4. Network access requires password authentication
+5. Local access remains direct (no authentication required)
+6. QR codes point to the secure proxy URL
+
+---
+
 ## [Unreleased]
 
 ### 🔮 Planned Features
 - 🔧 Configuration file support
-- 🌍 Custom port configuration
 - 🔐 HTTPS support
 - 📊 Usage analytics
 ---
