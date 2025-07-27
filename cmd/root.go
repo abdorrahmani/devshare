@@ -14,16 +14,20 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "devshare",
+	Use:   "devshare <PORT>",
+	Args:  cobra.ExactArgs(1),
 	Short: "DevShare is a CLI tool for sharing your dev environment over LAN",
 	Long: `DevShare is a CLI tool for sharing your development environment over LAN.
 
 Example usage:
   devshare
+  devshare 3000
   devshare --version
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		display.WelcomeMessage()
+		port := args[0]
+
 		dir := detector.GetWorkingDir()
 		projectType, pkgManager := detector.DetectProjectType(dir)
 		if projectType == "" {
@@ -31,12 +35,12 @@ Example usage:
 			return
 		}
 		if projectType == "react" || projectType == "nextjs" || projectType == "nodejs" {
-			err := runner.RunProject(projectType, pkgManager)
+			err := runner.RunProject(projectType, pkgManager, port)
 			if err != nil {
 				fmt.Printf("❌ Error: %v\n", err)
 			}
 		} else if projectType == "go" || projectType == "laravel" {
-			err := runner.RunProject(projectType, "")
+			err := runner.RunProject(projectType, "", port)
 			if err != nil {
 				fmt.Printf("❌ Error: %v\n", err)
 			}

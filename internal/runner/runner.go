@@ -11,18 +11,19 @@ import (
 )
 
 // RunProject runs the appropriate command based on project type and package manager.
-func RunProject(projectType, packageManager string) error {
+// It supports Laravel, React, Next.js, Go, and Node.js projects.
+func RunProject(projectType, packageManager, port string) error {
 	switch projectType {
 	case "laravel":
-		return runLaravel()
+		return runLaravel(port)
 	case "react":
-		return runReact(packageManager)
+		return runReact(packageManager, port)
 	case "nextjs":
-		return runNextJS(packageManager)
+		return runNextJS(packageManager, port)
 	case "go":
 		return runGo()
 	case "nodejs":
-		return runNodeJS(packageManager)
+		return runNodeJS(packageManager, port)
 	default:
 		return fmt.Errorf("unsupported project type: %s", projectType)
 	}
@@ -60,38 +61,44 @@ func runWithInstallRetry(packageManager string, cmds [][]string, installArgs []s
 	return fmt.Errorf("failed to start app with %s", packageManager)
 }
 
-func runReact(packageManager string) error {
+func runReact(packageManager, port string) error {
 	fmt.Println("🚀 Starting React app...")
 	ip := network.GetLocalIP()
-	cmds := [][]string{
-		{"start", "--host", "0.0.0.0"},
-		{"dev", "--host", "0.0.0.0"},
+	if port == "" {
+		port = "5173" // Default Vite port
 	}
-	fmt.Printf("Local:   http://localhost:5173\n")
-	fmt.Printf("Network: http://%s:5173\n", ip)
+	cmds := [][]string{
+		{"start", "--port", port, "--host", "0.0.0.0"},
+		{"dev", "--port", port, "--host", "0.0.0.0"},
+	}
+	fmt.Printf("Local:   http://localhost:%s\n", port)
+	fmt.Printf("Network: http://%s:%s\n", ip, port)
 	return runWithInstallRetry(
 		packageManager,
 		cmds,
 		[]string{"install"},
-		ip+":5173",
-		"📱 Scan this on your phone (React/Vite default port 5173):",
+		ip+":"+port,
+		"📱 Scan this on your phone:",
 	)
 }
 
-func runNextJS(packageManager string) error {
+func runNextJS(packageManager, port string) error {
 	fmt.Println("🚀 Starting Next.js app...")
 	ip := network.GetLocalIP()
-	cmds := [][]string{
-		{"dev", "-H", "0.0.0.0"},
+	if port == "" {
+		port = "3000" // Default Next.js port
 	}
-	fmt.Printf("Local:   http://localhost:3000\n")
-	fmt.Printf("Network: http://%s:3000\n", ip)
+	cmds := [][]string{
+		{"dev", "--port", port, "-H", "0.0.0.0"},
+	}
+	fmt.Printf("Local:   http://localhost:%s\n", port)
+	fmt.Printf("Network: http://%s:%s\n", ip, port)
 	return runWithInstallRetry(
 		packageManager,
 		cmds,
 		[]string{"install"},
-		ip+":3000",
-		"📱 Scan this on your phone (Next.js default port 3000):",
+		ip+":"+port,
+		"📱 Scan this on your phone:",
 	)
 }
 
@@ -107,18 +114,21 @@ func runGo() error {
 }
 
 // runLaravel runs the Laravel app
-func runLaravel() error {
+func runLaravel(port string) error {
 	fmt.Println("🚀 Starting Laravel app...")
 	ip := network.GetLocalIP()
-	cmd := exec.Command("php", "artisan", "serve", "--host", "0.0.0.0", "--port", "8000")
+	if port == "" {
+		port = "8000" // Default Laravel port
+	}
+	cmd := exec.Command("php", "artisan", "serve", "--host", "0.0.0.0", "--port", port)
 
-	fmt.Printf("Local:   http://localhost:8000\n")
-	fmt.Printf("Network: http://%s:8000\n", ip)
+	fmt.Printf("Local:   http://localhost:%s\n", port)
+	fmt.Printf("Network: http://%s:%s\n", ip, port)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	qrcode.GenerateQrCodeWithMessage(ip+":8000", "📱 Scan this on your phone (Laravel default port 8000):")
+	qrcode.GenerateQrCodeWithMessage(ip+":"+port, "📱 Scan this on your phone:")
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to run Laravel app: %w", err)
@@ -127,10 +137,13 @@ func runLaravel() error {
 }
 
 // runNodeJs runs the Node.js app
-func runNodeJS(packageManager string) error {
+func runNodeJS(packageManager, port string) error {
 	fmt.Println("🚀 Starting Node.js app...")
 	ip := network.GetLocalIP()
 
+	if port == "" {
+		port = "3000" // Default Node.js port
+	}
 	pmCmds := [][]string{
 		{"start"},
 		{"run", "dev"},
@@ -147,9 +160,9 @@ func runNodeJS(packageManager string) error {
 	}
 
 	printNetworkInfo := func() {
-		fmt.Printf("Local:   http://localhost:3000\n")
-		fmt.Printf("Network: http://%s:3000\n", ip)
-		qrcode.GenerateQrCodeWithMessage(ip+":3000", "📱 Scan this on your phone (Node.js default port 3000):")
+		fmt.Printf("Local:   http://localhost:%s\n", port)
+		fmt.Printf("Network: http://%s:%s\n", ip, port)
+		qrcode.GenerateQrCodeWithMessage(ip+":"+port, "📱 Scan this on your phone:")
 	}
 
 	// Try package manager scripts first
