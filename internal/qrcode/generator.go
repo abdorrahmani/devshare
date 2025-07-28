@@ -16,5 +16,5 @@ func GenerateQrCodeWithMessage(text, message string) {
 		Level:      qrterminal.L,
 		Writer:     os.Stdout,
 	}
-	qrterminal.GenerateWithConfig("http:://"+text, config)
+	qrterminal.GenerateWithConfig("http://"+text, config)
 }
