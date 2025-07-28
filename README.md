@@ -7,6 +7,12 @@
 
 # DevShare
 
+<div align="center">
+<img src="./devshare.png" width="250"  alt="DevShare Logo">
+<br/>
+  <em>Your Interactive Share development environment over LAN Tool</em>
+</div>
+
 > **Share your development environment over LAN in seconds!**
 
 DevShare is a CLI tool that lets you instantly share your local development environment with others on your local network. It detects your project type (React, Next.js, Node.js, Go, Laravel), starts the appropriate server, and displays a QR code for easy access from any device on your LAN.
