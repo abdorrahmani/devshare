@@ -4,6 +4,7 @@ project_name: DevShare
 before:
   hooks:
     - go mod tidy
+    - windres versioninfo.rc -O coff -o versioninfo.syso
 
 builds:
   - id: devshare
