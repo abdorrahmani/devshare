@@ -22,6 +22,8 @@ builds:
     main: ./main.go
     binary: devshare
     dir: .
+    ldflags:
+      - "-s -w"
 
 archives:
   - format: tar.gz
