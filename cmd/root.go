@@ -61,6 +61,7 @@ func init() {
 	rootCmd.Version = Version
 	rootCmd.Flags().StringVar(passwordFlag, "password", "", "Password for accessing the shared environment (optional, defaults to no password)")
 	rootCmd.SetVersionTemplate("DevShare version: {{.Version}}\n")
+	rootCmd.AddCommand(updateCmd)
 }
 
 func Execute() error {
