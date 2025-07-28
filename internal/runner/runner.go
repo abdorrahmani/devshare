@@ -79,7 +79,10 @@ func startAuthServer(targetPort, authPort, password string) error {
 		}
 		w.WriteHeader(resp.StatusCode)
 
-		io.Copy(w, resp.Body)
+		_, err = io.Copy(w, resp.Body)
+		if err != nil {
+			return
+		}
 	})
 
 	var handler http.Handler = proxyHandler
@@ -121,7 +124,10 @@ func runWithInstallRetry(packageManager string, cmds [][]string, installArgs []s
 				ip := network.GetLocalIP()
 				qrcode.GenerateQrCodeWithMessage(ip+":"+port, "📱 Scan this on your phone:")
 			}
-			cmd.Wait()
+			err := cmd.Wait()
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 	}
@@ -141,7 +147,10 @@ func runWithInstallRetry(packageManager string, cmds [][]string, installArgs []s
 				ip := network.GetLocalIP()
 				qrcode.GenerateQrCodeWithMessage(ip+":"+port, "📱 Scan this on your phone:")
 			}
-			cmd.Wait()
+			err := cmd.Wait()
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 	}
@@ -160,7 +169,10 @@ func getAvailablePort(startPort string) int {
 		testPort := startSearchPort + i
 		listener, err := net.Listen("tcp", ":"+strconv.Itoa(testPort))
 		if err == nil {
-			listener.Close()
+			err := listener.Close()
+			if err != nil {
+				return 0
+			}
 			return testPort
 		}
 	}
@@ -302,14 +314,13 @@ func runNodeJS(packageManager, port, password string) error {
 	fmt.Println("\n\033[33mWARNING: Your Node.js app may be listening on all interfaces (0.0.0.0).\033[0m")
 	fmt.Println("For security, ensure your app binds to 127.0.0.1 to prevent bypassing authentication.")
 	fmt.Println("If you control the app, update your server code to listen only on 127.0.0.1, for example:")
-	fmt.Println(`
-// Node.js (Express example):
-const host = process.env.HOST || '127.0.0.1';
-const port = process.env.PORT || 3000;
-app.listen(port, host, () => {
-  console.log(` + "`Server running at http://${host}:${port}/`" + `);
-});
-`)
+	fmt.Println()
+	fmt.Println("// Node.js (Express example):")
+	fmt.Println("const host = process.env.HOST || '127.0.0.1';")
+	fmt.Println("const port = process.env.PORT || 3000;")
+	fmt.Println("app.listen(port, host, () => {")
+	fmt.Println("  console.log(`Server running at http://${host}:${port}/`);")
+	fmt.Println("});")
 
 	// Try package manager scripts first
 	for _, args := range pmCmds {

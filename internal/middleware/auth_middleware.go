@@ -141,6 +141,6 @@ func AuthMiddleware(next http.Handler, password string) http.Handler {
 </body>
 </html>`
 
-		w.Write([]byte(html))
+		_, _ = w.Write([]byte(html))
 	})
 }
