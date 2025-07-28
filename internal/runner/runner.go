@@ -185,9 +185,14 @@ func runReact(packageManager, port, password string) error {
 	if port == "" {
 		port = "5173" // Default Vite port
 	}
+	// Bind to 127.0.0.1 if password is set, otherwise 0.0.0.0
+	host := "0.0.0.0"
+	if password != "" {
+		host = "127.0.0.1"
+	}
 	cmds := [][]string{
-		{"start", "--port", port, "--host", "127.0.0.1"},
-		{"dev", "--port", port, "--host", "127.0.0.1"},
+		{"start", "--port", port, "--host", host},
+		{"dev", "--port", port, "--host", host},
 	}
 	fmt.Printf("Local:   http://localhost:%s\n", port)
 	if password == "" {
@@ -208,8 +213,13 @@ func runNextJS(packageManager, port, password string) error {
 	if port == "" {
 		port = "3000" // Default Next.js port
 	}
+	// Bind to 127.0.0.1 if password is set, otherwise 0.0.0.0
+	host := "0.0.0.0"
+	if password != "" {
+		host = "127.0.0.1"
+	}
 	cmds := [][]string{
-		{"dev", "--port", port, "-H", "127.0.0.1"},
+		{"dev", "--port", port, "-H", host},
 	}
 	fmt.Printf("Local:   http://localhost:%s\n", port)
 	if password == "" {
@@ -242,7 +252,12 @@ func runLaravel(port, password string) error {
 	if port == "" {
 		port = "8000" // Default Laravel port
 	}
-	cmd := exec.Command("php", "artisan", "serve", "--host", "127.0.0.1", "--port", port)
+	// Bind to 127.0.0.1 if password is set, otherwise 0.0.0.0
+	host := "0.0.0.0"
+	if password != "" {
+		host = "127.0.0.1"
+	}
+	cmd := exec.Command("php", "artisan", "serve", "--host", host, "--port", port)
 
 	fmt.Printf("Local:   http://localhost:%s\n", port)
 	if password == "" {
