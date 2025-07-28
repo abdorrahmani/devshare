@@ -51,12 +51,8 @@ var updateCmd = &cobra.Command{
 		}
 		current := Version
 		latest := release.TagName
-		if strings.HasPrefix(latest, "v") {
-			latest = latest[1:]
-		}
-		if strings.HasPrefix(current, "v") {
-			current = current[1:]
-		}
+		latest = strings.TrimPrefix(latest, "v")
+		current = strings.TrimPrefix(current, "v")
 		if current == latest {
 			cmd.Println("You are already running the latest version (", Version, ")!")
 			return
