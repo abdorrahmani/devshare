@@ -184,6 +184,26 @@ Local:   http://localhost:5173
 
 ---
 
+## 🔄 Updating DevShare
+
+To update DevShare to the latest version, simply run:
+
+```sh
+devshare update
+```
+
+This command will:
+- Check for the latest release on GitHub
+- Download the correct archive for your platform
+- Extract the new binary and run the official installer script (`install.sh` on Linux/macOS, `install.bat` on Windows)
+- Replace your current DevShare installation with the latest version
+
+**Note:**
+- You may be prompted for administrator/root permissions during the update, depending on your system configuration.
+- If the update fails, you can always manually download and install the latest release as described in the installation section above.
+
+---
+
 ## Security Note for Node.js Users
 
 **WARNING:** Your Node.js app may be listening on all interfaces (`0.0.0.0`). For security, ensure your app binds to `127.0.0.1` to prevent bypassing authentication.
