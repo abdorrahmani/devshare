@@ -41,7 +41,7 @@ Example usage:
 			fmt.Println("❌ No supported project detected. Exiting.")
 			return
 		}
-		if projectType == "react" || projectType == "nextjs" || projectType == "nodejs" {
+		if projectType == "react" || projectType == "nextjs" || projectType == "nodejs" || projectType == "vue" {
 			err := runner.RunProject(projectType, pkgManager, port, *passwordFlag)
 			if err != nil {
 				fmt.Printf("❌ Error: %v\n", err)

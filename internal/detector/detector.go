@@ -16,7 +16,7 @@ func GetWorkingDir() string {
 	return dir
 }
 
-// DetectProjectType returns the project type (react, nextjs, go, nodejs) and package manager if applicable.
+// DetectProjectType returns the project type (react, nextjs,vue.js, go, nodejs) and package manager if applicable.
 func DetectProjectType(dir string) (string, string) {
 	if isLaravelProject(dir) {
 		fmt.Println("✅ Laravel project detected!")
@@ -36,6 +36,10 @@ func DetectProjectType(dir string) (string, string) {
 		fmt.Println("✅ Node.js project detected!")
 		fmt.Printf("📦 Using package manager: %s\n", pkgManager)
 		return "nodejs", pkgManager
+	} else if ok, pkgManager := isVueJSProject(dir); ok {
+		fmt.Println("✅ Vue.js project detected!")
+		fmt.Printf("📦 Using package manager: %s\n", pkgManager)
+		return "vue", pkgManager
 	}
 	return "", ""
 }

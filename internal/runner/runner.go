@@ -30,6 +30,8 @@ func RunProject(projectType, packageManager, port, password string) error {
 		return runGo(password)
 	case "nodejs":
 		return runNodeJS(packageManager, port, password)
+	case "vue":
+		return runVue(packageManager, port, password)
 	default:
 		return fmt.Errorf("unsupported project type: %s", projectType)
 	}
@@ -205,6 +207,29 @@ func runReact(packageManager, port, password string) error {
 		port,
 		password,
 	)
+}
+
+func runVue(packageManager, port, password string) error {
+	fmt.Println("🚀 Starting Vue app...")
+	ip := network.GetLocalIP()
+	if port == "" {
+		port = "5173" // default view port
+	}
+	host := "0.0.0.0"
+	if password != "" {
+		host = "127.0.0.1"
+	}
+	cmds := [][]string{
+		{"start", "--port", port, "--host", host},
+		{"dev", "--port", port, "--host", host},
+	}
+
+	fmt.Printf("Local:   http://localhost:%s\n", port)
+	if password == "" {
+		fmt.Printf("Network: http://%s:%s\n", ip, port)
+	}
+
+	return runWithInstallRetry(packageManager, cmds, []string{"install"}, port, password)
 }
 
 func runNextJS(packageManager, port, password string) error {
