@@ -1,13 +1,47 @@
 package middleware
 
 import (
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"net/http"
+	"sync"
+	"time"
 )
 
+const sessionTTL = time.Hour
+
+// AuthMiddleware gates next behind a password. On success it issues a random,
+// opaque session token (never the password) tracked server-side.
+// ponytail: in-memory session map, no eviction beyond lazy expiry; fine for a
+// single-process LAN dev tool. Swap for a store with cleanup if it ever grows.
 func AuthMiddleware(next http.Handler, password string) http.Handler {
+	var mu sync.Mutex
+	sessions := map[string]time.Time{} // token -> expiry
+	pw := []byte(password)
+
+	newToken := func() string {
+		b := make([]byte, 32)
+		_, _ = rand.Read(b)
+		return hex.EncodeToString(b)
+	}
+
+	valid := func(token string) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		exp, ok := sessions[token]
+		if !ok {
+			return false
+		}
+		if time.Now().After(exp) {
+			delete(sessions, token)
+			return false
+		}
+		return true
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("devshare_auth")
-		if err == nil && cookie.Value == password {
+		if c, err := r.Cookie("devshare_auth"); err == nil && valid(c.Value) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -17,45 +51,42 @@ func AuthMiddleware(next http.Handler, password string) http.Handler {
 				http.Error(w, "Bad Request", http.StatusBadRequest)
 				return
 			}
-			if r.Form.Get("password") == password {
+			// constant-time compare avoids leaking the password via timing
+			if subtle.ConstantTimeCompare([]byte(r.Form.Get("password")), pw) == 1 {
+				token := newToken()
+				mu.Lock()
+				sessions[token] = time.Now().Add(sessionTTL)
+				mu.Unlock()
 				http.SetCookie(w, &http.Cookie{
 					Name:     "devshare_auth",
-					Value:    password,
+					Value:    token,
 					Path:     "/",
 					HttpOnly: true,
-					MaxAge:   3600, // 1 hour
+					SameSite: http.SameSiteLaxMode,
+					// Secure is intentionally omitted: DevShare serves plain HTTP over LAN.
+					MaxAge: int(sessionTTL.Seconds()),
 				})
-
-				redirectPath := r.URL.Path
-				if redirectPath == "" {
-					redirectPath = "/"
+				redirect := r.URL.Path
+				if redirect == "" {
+					redirect = "/"
 				}
 				if r.URL.RawQuery != "" {
-					redirectPath += "?" + r.URL.RawQuery
+					redirect += "?" + r.URL.RawQuery
 				}
-				http.Redirect(w, r, redirectPath, http.StatusFound)
+				http.Redirect(w, r, redirect, http.StatusFound)
 				return
 			}
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(loginHTML))
+	})
+}
 
-		formAction := r.URL.Path
-		if formAction == "" {
-			formAction = "/"
-		}
-		if r.URL.RawQuery != "" {
-			formAction += "?" + r.URL.RawQuery
-		}
-
-		if formAction == "" || formAction == "/" {
-			formAction = r.RequestURI
-			if formAction == "" {
-				formAction = "/"
-			}
-		}
-
-		html := `<!DOCTYPE html>
+// loginHTML is fully static: the form posts to the current URL (empty action),
+// so no request-controlled value is ever reflected into the page (no XSS).
+const loginHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
@@ -123,11 +154,11 @@ func AuthMiddleware(next http.Handler, password string) http.Handler {
 </head>
 <body>
 	<div class="auth-container">
-		<h1 style="color:#0d92ee">DevShare</h2>
+		<h1 style="color:#0d92ee">DevShare</h1>
 		<a href="https://anophel.com"><img src="https://anophel.com/Anophel-logo.svg" width="200" height="60" alt="Anophel logo"/></a>
-		<h2>🔐 Authentication Required</h1>
+		<h2>🔐 Authentication Required</h2>
 		<p>Please enter the password to access this development environment.</p>
-		<form method="POST" action="` + formAction + `" class="auth-form">
+		<form method="POST" action="" class="auth-form">
 			<input type="password" name="password" placeholder="Enter password" required autofocus>
 			<button type="submit">Access Development Environment</button>
 		</form>
@@ -140,7 +171,3 @@ func AuthMiddleware(next http.Handler, password string) http.Handler {
 	</div>
 </body>
 </html>`
-
-		_, _ = w.Write([]byte(html))
-	})
-}
