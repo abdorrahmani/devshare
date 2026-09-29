@@ -1,5 +1,5 @@
 [![GitHub Repo](https://img.shields.io/badge/GitHub-Repo-blue?logo=github)](https://github.com/abdorrahmani/devshare)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go)](https://golang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?logo=open-source-initiative)](https://github.com/abdorrahmani/devshare/blob/master/LICENSE)
 ![Static Badge](https://img.shields.io/badge/Built%20with-%F0%9F%92%99%20by%20Anophel-blue)
 
