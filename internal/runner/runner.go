@@ -1,11 +1,11 @@
 package runner
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -17,86 +17,53 @@ import (
 )
 
 // RunProject runs the appropriate command based on project type and package manager.
-// It supports Laravel, React, Next.js, Go, and Node.js projects.
+// It supports Laravel, React, Vue, Next.js, Go, and Node.js projects.
 func RunProject(projectType, packageManager, port, password string) error {
 	switch projectType {
 	case "laravel":
 		return runLaravel(port, password)
 	case "react":
-		return runReact(packageManager, port, password)
+		return runVite("React", packageManager, port, password)
+	case "vue":
+		return runVite("Vue", packageManager, port, password)
 	case "nextjs":
 		return runNextJS(packageManager, port, password)
 	case "go":
 		return runGo(password)
 	case "nodejs":
 		return runNodeJS(packageManager, port, password)
-	case "vue":
-		return runVue(packageManager, port, password)
 	default:
 		return fmt.Errorf("unsupported project type: %s", projectType)
 	}
 }
 
-// startAuthServer starts an authentication proxy server that forwards requests to the actual app
+// startAuthServer starts an authentication proxy that forwards requests to the app.
 func startAuthServer(targetPort, authPort, password string) error {
 	ip := network.GetLocalIP()
 	if ip == "" {
 		return fmt.Errorf("could not determine local IP address")
 	}
 
-	proxyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var bodyBytes []byte
-		if r.Body != nil {
-			bodyBytes, _ = io.ReadAll(r.Body)
-		}
-		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	target, err := url.Parse("http://localhost:" + targetPort)
+	if err != nil {
+		return err
+	}
+	// ReverseProxy sets the upstream Host correctly and upgrades WebSocket
+	// connections (Vite/Next HMR), which the old hand-rolled proxy dropped.
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	director := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		director(req)
+		req.Host = target.Host // present the upstream's own host (dev-server host checks)
+	}
 
-		targetURL := fmt.Sprintf("http://localhost:%s%s", targetPort, r.URL.RequestURI())
-		proxyReq, err := http.NewRequest(r.Method, targetURL, io.NopCloser(bytes.NewBuffer(bodyBytes)))
-		if err != nil {
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
-		}
-
-		for name, values := range r.Header {
-			for _, value := range values {
-				proxyReq.Header.Add(name, value)
-			}
-		}
-
-		proxyReq.Header.Set("Host", fmt.Sprintf("localhost:%s", targetPort))
-
-		client := &http.Client{Timeout: 30 * time.Second}
-		resp, err := client.Do(proxyReq)
-		if err != nil {
-			http.Error(w, "Bad Gateway", http.StatusBadGateway)
-			return
-		}
-		defer resp.Body.Close()
-
-		for name, values := range resp.Header {
-			for _, value := range values {
-				w.Header().Add(name, value)
-			}
-		}
-		w.WriteHeader(resp.StatusCode)
-
-		_, err = io.Copy(w, resp.Body)
-		if err != nil {
-			return
-		}
-	})
-
-	var handler http.Handler = proxyHandler
+	var handler http.Handler = proxy
 	if password != "" {
-		handler = middleware.AuthMiddleware(proxyHandler, password)
+		handler = middleware.AuthMiddleware(proxy, password)
 		fmt.Printf("🔐 Authentication enabled - Password required to access the app\n")
 	}
 
-	server := &http.Server{
-		Addr:    "0.0.0.0:" + authPort,
-		Handler: handler,
-	}
+	server := &http.Server{Addr: "0.0.0.0:" + authPort, Handler: handler}
 
 	fmt.Printf("🔗 Auth Proxy: http://%s:%s\n", ip, authPort)
 	qrcode.GenerateQrCodeWithMessage(ip+":"+authPort, "📱 Scan this on your phone:")
@@ -104,8 +71,9 @@ func startAuthServer(targetPort, authPort, password string) error {
 	return server.ListenAndServe()
 }
 
-// runWithInstallRetry tries to run the app with given commands, installs dependencies if needed, and retries. Shows QR code only after successful start.
-func runWithInstallRetry(packageManager string, cmds [][]string, installArgs []string, port, password string) error {
+// runWithInstallRetry runs the app, installing dependencies once and retrying if
+// the first attempt can't start. QR code is shown only after the server is up.
+func runWithInstallRetry(pm string, scripts, flags []string, port, password string) error {
 	if password != "" {
 		authPort := strconv.Itoa(getAvailablePort(port))
 		go func() {
@@ -113,53 +81,93 @@ func runWithInstallRetry(packageManager string, cmds [][]string, installArgs []s
 				fmt.Printf("❌ Auth server error: %v\n", err)
 			}
 		}()
-
-		time.Sleep(500 * time.Millisecond)
 	}
 
-	for _, args := range cmds {
-		cmd := exec.Command(packageManager, args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Start(); err == nil {
-			if password == "" {
-				ip := network.GetLocalIP()
-				qrcode.GenerateQrCodeWithMessage(ip+":"+port, "📱 Scan this on your phone:")
-			}
-			err := cmd.Wait()
-			if err != nil {
-				return err
-			}
-			return nil
-		}
+	if started, err := tryScripts(pm, scripts, flags, port, password); started {
+		return err
 	}
+
 	fmt.Println("Installing dependencies...")
-	installCmd := exec.Command(packageManager, installArgs...)
-	installCmd.Stdout = os.Stdout
-	installCmd.Stderr = os.Stderr
-	if err := installCmd.Run(); err != nil {
+	install := exec.Command(pm, "install")
+	install.Stdout = os.Stdout
+	install.Stderr = os.Stderr
+	if err := install.Run(); err != nil {
 		return fmt.Errorf("failed to install dependencies: %w", err)
 	}
-	for _, args := range cmds {
-		cmd := exec.Command(packageManager, args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Start(); err == nil {
-			if password == "" {
-				ip := network.GetLocalIP()
-				qrcode.GenerateQrCodeWithMessage(ip+":"+port, "📱 Scan this on your phone:")
-			}
-			err := cmd.Wait()
-			if err != nil {
-				return err
-			}
-			return nil
-		}
+
+	if started, err := tryScripts(pm, scripts, flags, port, password); started {
+		return err
 	}
-	return fmt.Errorf("failed to start app with %s", packageManager)
+	return fmt.Errorf("failed to start app with %s", pm)
 }
 
-// getAvailablePort finds an available port starting from the given port
+// tryScripts runs each candidate script until one actually binds the dev port.
+// Returns started=true (with that run's exit error) once a server comes up, or
+// started=false if every candidate exited before binding.
+func tryScripts(pm string, scripts, flags []string, port, password string) (bool, error) {
+	showQR := func() {
+		if password == "" {
+			qrcode.GenerateQrCodeWithMessage(network.GetLocalIP()+":"+port, "📱 Scan this on your phone:")
+		}
+	}
+	for _, script := range scripts {
+		cmd := exec.Command(pm, pmRunArgs(pm, script, flags)...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			continue
+		}
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+
+		// ponytail: 15s bind window; a slower build past that is assumed to be the server.
+		deadline := time.After(15 * time.Second)
+		bound := false
+		for !bound {
+			select {
+			case <-done:
+				bound = true // exited before binding → try the next candidate
+			case <-deadline:
+				showQR()
+				return true, <-done
+			default:
+				if portOpen(port) {
+					showQR()
+					return true, <-done
+				}
+				time.Sleep(200 * time.Millisecond)
+			}
+		}
+	}
+	return false, nil
+}
+
+// portOpen reports whether something is already listening on the local port.
+func portOpen(port string) bool {
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:"+port, 200*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
+// pmRunArgs builds the args to run a package.json script with flags.
+// npm needs "run <script>" and a "--" separator before script flags; yarn and
+// pnpm forward extra args to the script directly.
+func pmRunArgs(pm, script string, flags []string) []string {
+	if pm == "npm" {
+		args := []string{"run", script}
+		if len(flags) > 0 {
+			args = append(args, "--")
+			args = append(args, flags...)
+		}
+		return args
+	}
+	return append([]string{script}, flags...)
+}
+
+// getAvailablePort finds an available port starting just above the given port.
 func getAvailablePort(startPort string) int {
 	port, _ := strconv.Atoi(startPort)
 	if port == 0 {
@@ -171,8 +179,7 @@ func getAvailablePort(startPort string) int {
 		testPort := startSearchPort + i
 		listener, err := net.Listen("tcp", ":"+strconv.Itoa(testPort))
 		if err == nil {
-			err := listener.Close()
-			if err != nil {
+			if err := listener.Close(); err != nil {
 				return 0
 			}
 			return testPort
@@ -181,86 +188,48 @@ func getAvailablePort(startPort string) int {
 	return startSearchPort + 1
 }
 
-func runReact(packageManager, port, password string) error {
-	fmt.Println("🚀 Starting React app...")
+// runVite runs a Vite-based app (React or Vue) — identical bar the label.
+func runVite(appName, pm, port, password string) error {
+	fmt.Printf("🚀 Starting %s app...\n", appName)
 	ip := network.GetLocalIP()
 	if port == "" {
-		port = "5173" // Default Vite port
-	}
-	// Bind to 127.0.0.1 if password is set, otherwise 0.0.0.0
-	host := "0.0.0.0"
-	if password != "" {
-		host = "127.0.0.1"
-	}
-	cmds := [][]string{
-		{"start", "--port", port, "--host", host},
-		{"dev", "--port", port, "--host", host},
-	}
-	fmt.Printf("Local:   http://localhost:%s\n", port)
-	if password == "" {
-		fmt.Printf("Network: http://%s:%s\n", ip, port)
-	}
-	return runWithInstallRetry(
-		packageManager,
-		cmds,
-		[]string{"install"},
-		port,
-		password,
-	)
-}
-
-func runVue(packageManager, port, password string) error {
-	fmt.Println("🚀 Starting Vue app...")
-	ip := network.GetLocalIP()
-	if port == "" {
-		port = "5173" // default view port
+		port = "5173" // default Vite port
 	}
 	host := "0.0.0.0"
 	if password != "" {
 		host = "127.0.0.1"
 	}
-	cmds := [][]string{
-		{"start", "--port", port, "--host", host},
-		{"dev", "--port", port, "--host", host},
-	}
-
 	fmt.Printf("Local:   http://localhost:%s\n", port)
 	if password == "" {
 		fmt.Printf("Network: http://%s:%s\n", ip, port)
 	}
-
-	return runWithInstallRetry(packageManager, cmds, []string{"install"}, port, password)
+	// dev first (Vite), start second (CRA) as a fallback
+	return runWithInstallRetry(pm, []string{"dev", "start"}, []string{"--port", port, "--host", host}, port, password)
 }
 
-func runNextJS(packageManager, port, password string) error {
+func runNextJS(pm, port, password string) error {
 	fmt.Println("🚀 Starting Next.js app...")
 	ip := network.GetLocalIP()
 	if port == "" {
-		port = "3000" // Default Next.js port
+		port = "3000" // default Next.js port
 	}
-	// Bind to 127.0.0.1 if password is set, otherwise 0.0.0.0
 	host := "0.0.0.0"
 	if password != "" {
 		host = "127.0.0.1"
-	}
-	cmds := [][]string{
-		{"dev", "--port", port, "-H", host},
 	}
 	fmt.Printf("Local:   http://localhost:%s\n", port)
 	if password == "" {
 		fmt.Printf("Network: http://%s:%s\n", ip, port)
 	}
-	return runWithInstallRetry(
-		packageManager,
-		cmds,
-		[]string{"install"},
-		port,
-		password,
-	)
+	return runWithInstallRetry(pm, []string{"dev"}, []string{"--port", port, "-H", host}, port, password)
 }
 
 func runGo(password string) error {
 	fmt.Println("🚀 Starting Go app...")
+	if password != "" {
+		fmt.Println("\n\033[33mWARNING: --password is not supported for Go projects.\033[0m")
+		fmt.Println("DevShare can't place an auth proxy in front of a Go app (it doesn't manage its port/binding). Running without authentication.")
+	}
 	cmd := exec.Command("go", "run", ".")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -270,28 +239,22 @@ func runGo(password string) error {
 	return nil
 }
 
-// runLaravel runs the Laravel app
+// runLaravel runs the Laravel app.
 func runLaravel(port, password string) error {
 	fmt.Println("🚀 Starting Laravel app...")
 	ip := network.GetLocalIP()
 	if port == "" {
-		port = "8000" // Default Laravel port
+		port = "8000" // default Laravel port
 	}
-	// Bind to 127.0.0.1 if password is set, otherwise 0.0.0.0
 	host := "0.0.0.0"
 	if password != "" {
 		host = "127.0.0.1"
 	}
 	cmd := exec.Command("php", "artisan", "serve", "--host", host, "--port", port)
-
-	fmt.Printf("Local:   http://localhost:%s\n", port)
-	if password == "" {
-		fmt.Printf("Network: http://%s:%s\n", ip, port)
-	}
-
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	fmt.Printf("Local:   http://localhost:%s\n", port)
 	if password != "" {
 		authPort := strconv.Itoa(getAvailablePort(port))
 		go func() {
@@ -299,8 +262,8 @@ func runLaravel(port, password string) error {
 				fmt.Printf("❌ Auth server error: %v\n", err)
 			}
 		}()
-		time.Sleep(500 * time.Millisecond)
 	} else {
+		fmt.Printf("Network: http://%s:%s\n", ip, port)
 		qrcode.GenerateQrCodeWithMessage(ip+":"+port, "📱 Scan this on your phone:")
 	}
 
@@ -310,19 +273,17 @@ func runLaravel(port, password string) error {
 	return nil
 }
 
-// runNodeJs runs the Node.js app
-func runNodeJS(packageManager, port, password string) error {
+// runNodeJS runs the Node.js app.
+func runNodeJS(pm, port, password string) error {
 	fmt.Println("🚀 Starting Node.js app...")
 	ip := network.GetLocalIP()
-
 	if port == "" {
-		port = "3000" // Default Node.js port
+		port = "3000" // default Node.js port
 	}
 	pmCmds := [][]string{
 		{"start"},
 		{"run", "dev"},
 	}
-
 	entryFiles := []struct {
 		file  string
 		useTs bool
@@ -332,7 +293,6 @@ func runNodeJS(packageManager, port, password string) error {
 		{"index.ts", true},
 		{"app.ts", true},
 	}
-
 	printNetworkInfo := func() {
 		fmt.Printf("Local:   http://localhost:%s\n", port)
 		if password == "" {
@@ -340,7 +300,6 @@ func runNodeJS(packageManager, port, password string) error {
 			qrcode.GenerateQrCodeWithMessage(ip+":"+port, "📱 Scan this on your phone:")
 		}
 	}
-
 	if password != "" {
 		authPort := strconv.Itoa(getAvailablePort(port))
 		go func() {
@@ -348,7 +307,6 @@ func runNodeJS(packageManager, port, password string) error {
 				fmt.Printf("❌ Auth server error: %v\n", err)
 			}
 		}()
-		time.Sleep(500 * time.Millisecond)
 	}
 
 	fmt.Println("\n\033[33mWARNING: Your Node.js app may be listening on all interfaces (0.0.0.0).\033[0m")
@@ -362,87 +320,53 @@ func runNodeJS(packageManager, port, password string) error {
 	fmt.Println("  console.log(`Server running at http://${host}:${port}/`);")
 	fmt.Println("});")
 
-	// Try package manager scripts first
-	for _, args := range pmCmds {
-		fmt.Printf("Trying: %s %s\n", packageManager, args)
-		printNetworkInfo()
-		cmd := exec.Command(packageManager, args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err == nil {
-			return nil
-		} else {
-			fmt.Printf("⚠️  Failed to run %s %s: %v\n", packageManager, args, err)
-		}
-	}
-
-	// Try direct node/ts-node with entry files
-	for _, entry := range entryFiles {
-		if _, err := os.Stat(entry.file); err == nil {
-			var cmd *exec.Cmd
-			if entry.useTs {
-				fmt.Printf("Trying: ts-node %s\n", entry.file)
-				printNetworkInfo()
-				cmd = exec.Command("ts-node", entry.file)
-			} else {
-				fmt.Printf("Trying: node %s\n", entry.file)
-				printNetworkInfo()
-				cmd = exec.Command("node", entry.file)
-			}
+	tryAll := func() bool {
+		for _, args := range pmCmds {
+			fmt.Printf("Trying: %s %s\n", pm, args)
+			printNetworkInfo()
+			cmd := exec.Command(pm, args...)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err == nil {
-				return nil
+				return true
 			} else {
-				fmt.Printf("⚠️  Failed to run %s %s: %v\n", cmd.Path, entry.file, err)
+				fmt.Printf("⚠️  Failed to run %s %s: %v\n", pm, args, err)
 			}
 		}
+		for _, entry := range entryFiles {
+			if _, err := os.Stat(entry.file); err != nil {
+				continue
+			}
+			bin := "node"
+			if entry.useTs {
+				bin = "ts-node"
+			}
+			fmt.Printf("Trying: %s %s\n", bin, entry.file)
+			printNetworkInfo()
+			cmd := exec.Command(bin, entry.file)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err == nil {
+				return true
+			} else {
+				fmt.Printf("⚠️  Failed to run %s %s: %v\n", bin, entry.file, err)
+			}
+		}
+		return false
 	}
 
+	if tryAll() {
+		return nil
+	}
 	fmt.Println("Installing dependencies...")
-	installCmd := exec.Command(packageManager, "install")
-	installCmd.Stdout = os.Stdout
-	installCmd.Stderr = os.Stderr
-	if err := installCmd.Run(); err != nil {
+	install := exec.Command(pm, "install")
+	install.Stdout = os.Stdout
+	install.Stderr = os.Stderr
+	if err := install.Run(); err != nil {
 		return fmt.Errorf("failed to install dependencies: %w", err)
 	}
-
-	// Retry package manager scripts
-	for _, args := range pmCmds {
-		fmt.Printf("Trying: %s %s\n", packageManager, args)
-		printNetworkInfo()
-		cmd := exec.Command(packageManager, args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err == nil {
-			return nil
-		} else {
-			fmt.Printf("⚠️  Failed to run %s %s: %v\n", packageManager, args, err)
-		}
+	if tryAll() {
+		return nil
 	}
-
-	// Retry direct node/ts-node
-	for _, entry := range entryFiles {
-		if _, err := os.Stat(entry.file); err == nil {
-			var cmd *exec.Cmd
-			if entry.useTs {
-				fmt.Printf("Trying: ts-node %s\n", entry.file)
-				printNetworkInfo()
-				cmd = exec.Command("ts-node", entry.file)
-			} else {
-				fmt.Printf("Trying: node %s\n", entry.file)
-				printNetworkInfo()
-				cmd = exec.Command("node", entry.file)
-			}
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err == nil {
-				return nil
-			} else {
-				fmt.Printf("⚠️  Failed to run %s %s: %v\n", cmd.Path, entry.file, err)
-			}
-		}
-	}
-
 	return fmt.Errorf("could not start Node.js app: no working package manager script or entry file")
 }

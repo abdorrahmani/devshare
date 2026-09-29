@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"flag"
 	"fmt"
 
 	"github.com/abdorrahmani/devshare/internal/detector"
@@ -12,7 +11,7 @@ import (
 
 var (
 	Version      = "v1.1.0"
-	passwordFlag = flag.String("password", "", "Password for accessing the shared environment (optional, defaults to no password)")
+	passwordFlag string
 )
 
 var rootCmd = &cobra.Command{
@@ -42,12 +41,12 @@ Example usage:
 			return
 		}
 		if projectType == "react" || projectType == "nextjs" || projectType == "nodejs" || projectType == "vue" {
-			err := runner.RunProject(projectType, pkgManager, port, *passwordFlag)
+			err := runner.RunProject(projectType, pkgManager, port, passwordFlag)
 			if err != nil {
 				fmt.Printf("❌ Error: %v\n", err)
 			}
 		} else if projectType == "go" || projectType == "laravel" {
-			err := runner.RunProject(projectType, "", port, *passwordFlag)
+			err := runner.RunProject(projectType, "", port, passwordFlag)
 			if err != nil {
 				fmt.Printf("❌ Error: %v\n", err)
 			}
@@ -59,7 +58,7 @@ Example usage:
 
 func init() {
 	rootCmd.Version = Version
-	rootCmd.Flags().StringVar(passwordFlag, "password", "", "Password for accessing the shared environment (optional, defaults to no password)")
+	rootCmd.Flags().StringVar(&passwordFlag, "password", "", "Password for accessing the shared environment (optional, defaults to no password)")
 	rootCmd.SetVersionTemplate("DevShare version: {{.Version}}\n")
 	rootCmd.AddCommand(updateCmd)
 }
