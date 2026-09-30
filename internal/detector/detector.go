@@ -29,6 +29,10 @@ func DetectProjectType(dir string) (string, string) {
 		fmt.Println("✅ React project detected!")
 		fmt.Printf("📦 Using package manager: %s\n", pkgManager)
 		return "react", pkgManager
+	} else if ok, pkgManager := isVueJSProject(dir); ok {
+		fmt.Println("✅ Vue.js project detected!")
+		fmt.Printf("📦 Using package manager: %s\n", pkgManager)
+		return "vue", pkgManager
 	} else if isGoProject(dir) {
 		fmt.Println("✅ Go project detected!")
 		return "go", ""
@@ -36,10 +40,6 @@ func DetectProjectType(dir string) (string, string) {
 		fmt.Println("✅ Node.js project detected!")
 		fmt.Printf("📦 Using package manager: %s\n", pkgManager)
 		return "nodejs", pkgManager
-	} else if ok, pkgManager := isVueJSProject(dir); ok {
-		fmt.Println("✅ Vue.js project detected!")
-		fmt.Printf("📦 Using package manager: %s\n", pkgManager)
-		return "vue", pkgManager
 	}
 	return "", ""
 }
